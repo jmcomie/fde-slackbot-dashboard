@@ -37,6 +37,11 @@ class Settings(BaseModel):
         description="OpenAI model name for LLM classification"
     )
 
+    llm_context: Optional[str] = Field(
+        default=None,
+        description="Optional custom context for LLM classification prompt"
+    )
+
     grouping_model: str = Field(
         default="all-MiniLM-L6-v2",
         description="Sentence-transformers model for semantic grouping"

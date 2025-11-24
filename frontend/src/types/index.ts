@@ -150,6 +150,7 @@ export interface Settings {
   bot_name?: string | null
   classification_method: ClassificationMethod
   llm_model: string
+  llm_context?: string | null
   grouping_model: string
   created_at: string
   updated_at: string

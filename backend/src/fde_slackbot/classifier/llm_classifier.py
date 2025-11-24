@@ -38,7 +38,11 @@ class LLMClassifier:
     but handles edge cases and ambiguous messages better.
     """
 
-    SYSTEM_PROMPT = """You are a classifier for a Slack channel monitoring system. Your job is to categorize messages into one of the following types:
+    BASE_SYSTEM_PROMPT = """You are a message classifier for a Forward Deployed Engineer (FDE) support monitoring system. FDEs work directly with customers to resolve technical issues, answer questions, and gather feedback.
+
+{CUSTOM_CONTEXT}
+
+Your job is to categorize messages into one of the following types:
 
 **bug_report**: Message describes a technical problem, error, or unexpected behavior
 - Examples: "Login button doesn't work", "Getting error 500", "App crashes when I click save"
@@ -61,6 +65,7 @@ Classify the message accurately and provide a confidence score."""
         self,
         model: str = "gpt-4o-mini",
         api_key: Optional[str] = None,
+        custom_context: Optional[str] = None,
     ):
         """
         Initialize the LLM classifier.
@@ -68,8 +73,10 @@ Classify the message accurately and provide a confidence score."""
         Args:
             model: OpenAI model name (default: gpt-4o-mini)
             api_key: OpenAI API key (if None, reads from OPENAI_API_KEY env var)
+            custom_context: Optional custom context to inject into prompt
         """
         self.model = model
+        self.custom_context = custom_context
         self.client = OpenAI(api_key=api_key or os.getenv("OPENAI_API_KEY"))
 
         if not self.client.api_key:
@@ -77,6 +84,20 @@ Classify the message accurately and provide a confidence score."""
                 "OpenAI API key not found. Set OPENAI_API_KEY environment variable "
                 "or pass api_key parameter."
             )
+
+    def _build_system_prompt(self) -> str:
+        """
+        Build the system prompt with optional custom context injection.
+
+        Returns:
+            Complete system prompt with custom context if provided
+        """
+        if self.custom_context and self.custom_context.strip():
+            context_section = f"Additional context: {self.custom_context.strip()}\n"
+        else:
+            context_section = ""
+
+        return self.BASE_SYSTEM_PROMPT.replace("{CUSTOM_CONTEXT}", context_section)
 
     def classify(self, message_text: str) -> ClassificationResult:
         """
@@ -100,11 +121,14 @@ Classify the message accurately and provide a confidence score."""
             )
 
         try:
+            # Build system prompt with optional custom context
+            system_prompt = self._build_system_prompt()
+
             # Call OpenAI with structured output
             completion = self.client.beta.chat.completions.parse(
                 model=self.model,
                 messages=[
-                    {"role": "system", "content": self.SYSTEM_PROMPT},
+                    {"role": "system", "content": system_prompt},
                     {"role": "user", "content": f"Classify this message:\n\n{message_text}"}
                 ],
                 response_format=LLMClassificationResponse,

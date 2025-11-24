@@ -15,12 +15,14 @@ export default function Settings() {
   const [classificationMethod, setClassificationMethod] = useState<ClassificationMethod>(
     settings?.classification_method || 'llm'
   )
+  const [llmContext, setLlmContext] = useState(settings?.llm_context || '')
 
   // Update form state when settings load
   useEffect(() => {
     if (settings) {
       setBotName(settings.bot_name || '')
       setClassificationMethod(settings.classification_method)
+      setLlmContext(settings.llm_context || '')
     }
   }, [settings])
 
@@ -31,6 +33,7 @@ export default function Settings() {
     const result = await updateSettings({
       bot_name: botName.trim() || null,
       classification_method: classificationMethod,
+      llm_context: llmContext.trim() || null,
     })
 
     if (result.success) {
@@ -43,7 +46,8 @@ export default function Settings() {
 
   const hasChanges =
     (settings?.bot_name || '') !== (botName.trim() || '') ||
-    settings?.classification_method !== classificationMethod
+    settings?.classification_method !== classificationMethod ||
+    (settings?.llm_context || '') !== (llmContext.trim() || '')
 
   if (loading) {
     return (
@@ -152,6 +156,27 @@ export default function Settings() {
               </div>
             </label>
           </div>
+
+          {/* Conditional LLM Context Textarea */}
+          {classificationMethod === 'llm' && (
+            <div className="space-y-2 pt-2">
+              <label htmlFor="llmContext" className="text-sm font-medium">
+                Custom Context (Optional)
+              </label>
+              <textarea
+                id="llmContext"
+                value={llmContext}
+                onChange={(e) => setLlmContext(e.target.value)}
+                placeholder="e.g., This monitors Slack channels for Product X. Messages about Product X features, bugs, or usage are relevant."
+                rows={3}
+                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary resize-y"
+              />
+              <p className="text-sm text-muted-foreground">
+                Provide additional context to help the LLM understand what messages are relevant to your FDE support work.
+                This context will be injected into the classification prompt.
+              </p>
+            </div>
+          )}
 
           <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-950 rounded-md border border-blue-200 dark:border-blue-800">
             <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />

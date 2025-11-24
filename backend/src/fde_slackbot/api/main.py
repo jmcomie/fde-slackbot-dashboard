@@ -45,7 +45,6 @@ app.add_middleware(
 # Initialize classifier and grouper (reuse instances for performance)
 # Note: Classifier selection is done per-request based on settings
 embedding_classifier = MessageClassifier(confidence_threshold=0.5)
-llm_classifier = None  # Lazy initialization on first use
 
 # Create grouper with embedding classifier (for backward compatibility)
 grouper = ConcernGrouper(classifier=embedding_classifier)
@@ -58,18 +57,21 @@ def get_classifier():
     Get the appropriate classifier based on current settings.
 
     Returns the LLM or embedding classifier depending on settings.
-    Lazy-initializes LLM classifier on first use.
+    Creates fresh LLM classifier instance on each call to pick up
+    settings changes (including custom context).
     """
-    global llm_classifier
-
-    settings = get_settings()
+    # Fetch settings fresh each time (no caching) for safety
+    settings = get_settings(use_cache=False)
 
     if settings.classification_method == "llm":
-        # Lazy initialization of LLM classifier
-        if llm_classifier is None:
-            logger.info(f"Initializing LLM classifier with model: {settings.llm_model}")
-            llm_classifier = LLMClassifier(model=settings.llm_model)
-        return llm_classifier
+        # Create fresh LLM classifier with current settings
+        logger.info(f"Creating LLM classifier with model: {settings.llm_model}")
+        if settings.llm_context:
+            logger.info(f"Using custom context: {settings.llm_context[:100]}...")
+        return LLMClassifier(
+            model=settings.llm_model,
+            custom_context=settings.llm_context
+        )
     else:
         return embedding_classifier
 
