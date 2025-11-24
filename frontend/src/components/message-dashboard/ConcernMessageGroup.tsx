@@ -1,11 +1,12 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { MessageItem } from './MessageItem'
-import { ChevronDown, ChevronRight, Bug, MessageSquare, Clock } from 'lucide-react'
+import { useConcernUpdate } from '@/hooks/useConcernUpdate'
+import { ChevronDown, ChevronRight, Bug, MessageSquare, Clock, Loader2 } from 'lucide-react'
 import type { ConcernWithMessages } from '@/hooks/useConcernsWithMessages'
-import type { ConcernCategory } from '@/types'
+import type { ConcernCategory, ConcernStatus } from '@/types'
 
 interface ConcernMessageGroupProps {
   concern: ConcernWithMessages
@@ -45,15 +46,60 @@ function formatRelativeTime(timestamp: string): string {
   return date.toLocaleDateString()
 }
 
+function getStatusBadgeVariant(status: ConcernStatus): 'default' | 'secondary' | 'outline' {
+  switch (status) {
+    case 'open':
+      return 'default'
+    case 'in_progress':
+      return 'secondary'
+    case 'resolved':
+      return 'outline'
+    case 'closed':
+      return 'outline'
+    default:
+      return 'outline'
+  }
+}
+
+function formatStatus(status: string): string {
+  return status.replace(/_/g, ' ')
+}
+
 /**
  * Component to display a concern (ticket) with its grouped messages
  * Shows category, bug count, and collapsible message list
  */
 export function ConcernMessageGroup({ concern }: ConcernMessageGroupProps) {
   const [isExpanded, setIsExpanded] = useState(true)
+  const [showStatusDropdown, setShowStatusDropdown] = useState(false)
+  const { updating, error, updateStatus } = useConcernUpdate()
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowStatusDropdown(false)
+      }
+    }
+
+    if (showStatusDropdown) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showStatusDropdown])
+
+  const handleStatusChange = async (newStatus: ConcernStatus) => {
+    setShowStatusDropdown(false)
+    const result = await updateStatus(concern.id, newStatus)
+    if (!result.success) {
+      // Error is already set in the hook, we could show a toast here
+      console.error('Failed to update status:', result.error)
+    }
+  }
 
   return (
-    <Card className="overflow-hidden">
+    <Card className="overflow-visible">
       {/* Concern Header */}
       <div className="border-b bg-accent/30 p-4">
         <div className="flex items-start justify-between gap-4">
@@ -116,6 +162,53 @@ export function ConcernMessageGroup({ concern }: ConcernMessageGroupProps) {
                 {concern.grouping_method.replace(/_/g, ' ')}
               </Badge>
             </div>
+          </div>
+
+          {/* Status Selector */}
+          <div className="flex flex-col gap-2">
+            <div className="relative" ref={dropdownRef}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowStatusDropdown(!showStatusDropdown)}
+                disabled={updating}
+                className="min-w-[140px] justify-between capitalize"
+              >
+                {updating ? (
+                  <>
+                    <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  <>
+                    <Badge variant={getStatusBadgeVariant(concern.status)} className="text-xs capitalize">
+                      {formatStatus(concern.status)}
+                    </Badge>
+                    <ChevronDown className="h-3 w-3 ml-2" />
+                  </>
+                )}
+              </Button>
+
+              {/* Status Dropdown */}
+              {showStatusDropdown && !updating && (
+                <div className="absolute right-0 top-full mt-1 w-[160px] bg-background border rounded-md shadow-lg z-50">
+                  {(['open', 'in_progress', 'resolved', 'closed'] as ConcernStatus[]).map((status) => (
+                    <button
+                      key={status}
+                      onClick={() => handleStatusChange(status)}
+                      className={`w-full text-left px-3 py-2 text-sm capitalize hover:bg-accent transition-colors ${
+                        concern.status === status ? 'bg-accent/50 font-medium' : ''
+                      }`}
+                    >
+                      {formatStatus(status)}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            {error && (
+              <p className="text-xs text-destructive">{error}</p>
+            )}
           </div>
         </div>
       </div>

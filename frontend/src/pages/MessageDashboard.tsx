@@ -4,7 +4,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { useConcernsWithMessages } from '@/hooks/useConcernsWithMessages'
 import { ConcernMessageGroup } from '@/components/message-dashboard/ConcernMessageGroup'
-import { LayoutDashboard, MessageSquare, Bug, Sparkles, HelpCircle } from 'lucide-react'
+import { LayoutDashboard, MessageSquare, Bug, Sparkles, HelpCircle, MessageCircle } from 'lucide-react'
 import type { ConcernCategory, ConcernStatus } from '@/types'
 
 export default function MessageDashboard() {
@@ -39,10 +39,10 @@ export default function MessageDashboard() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-5">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Groups</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Tickets</CardTitle>
             <LayoutDashboard className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -77,6 +77,16 @@ export default function MessageDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{supportCount}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">General Questions</CardTitle>
+            <MessageCircle className="h-4 w-4 text-purple-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{generalCount}</div>
           </CardContent>
         </Card>
       </div>
