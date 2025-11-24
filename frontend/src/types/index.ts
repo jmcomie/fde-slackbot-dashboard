@@ -139,3 +139,18 @@ export interface ConcernSummary {
   first_seen: string
   last_updated: string
 }
+
+// ========== Settings Types ==========
+
+export type ClassificationMethod = 'embedding' | 'llm'
+
+// Application-wide settings
+export interface Settings {
+  id: string
+  bot_name?: string | null
+  classification_method: ClassificationMethod
+  llm_model: string
+  grouping_model: string
+  created_at: string
+  updated_at: string
+}

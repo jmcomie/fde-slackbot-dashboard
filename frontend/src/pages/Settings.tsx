@@ -1,42 +1,262 @@
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { useSettings } from '@/hooks/useSettings'
+import { Save, Loader2, CheckCircle2, AlertCircle, Info } from 'lucide-react'
+import type { ClassificationMethod } from '@/types'
 
 export default function Settings() {
+  const { settings, loading, error, updating, updateSettings } = useSettings()
+  const [showSuccess, setShowSuccess] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+
+  // Form state
+  const [botName, setBotName] = useState(settings?.bot_name || '')
+  const [classificationMethod, setClassificationMethod] = useState<ClassificationMethod>(
+    settings?.classification_method || 'llm'
+  )
+
+  // Update form state when settings load
+  useEffect(() => {
+    if (settings) {
+      setBotName(settings.bot_name || '')
+      setClassificationMethod(settings.classification_method)
+    }
+  }, [settings])
+
+  const handleSave = async () => {
+    setSaveError(null)
+    setShowSuccess(false)
+
+    const result = await updateSettings({
+      bot_name: botName.trim() || null,
+      classification_method: classificationMethod,
+    })
+
+    if (result.success) {
+      setShowSuccess(true)
+      setTimeout(() => setShowSuccess(false), 3000)
+    } else {
+      setSaveError(result.error || 'Failed to save settings')
+    }
+  }
+
+  const hasChanges =
+    (settings?.bot_name || '') !== (botName.trim() || '') ||
+    settings?.classification_method !== classificationMethod
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold">Settings</h1>
+          <p className="text-muted-foreground">
+            Manage your dashboard preferences and integrations
+          </p>
+        </div>
+        <Card className="border-destructive">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2 text-destructive">
+              <AlertCircle className="h-5 w-5" />
+              <p>Failed to load settings: {error}</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Settings</h1>
         <p className="text-muted-foreground">
-          Manage your dashboard preferences and integrations
+          Configure message classification, semantic grouping, and bot filtering
         </p>
       </div>
 
+      {/* Success/Error Messages */}
+      {showSuccess && (
+        <Card className="border-green-500 bg-green-50 dark:bg-green-950">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
+              <CheckCircle2 className="h-5 w-5" />
+              <p className="font-medium">Settings saved successfully!</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {saveError && (
+        <Card className="border-destructive bg-red-50 dark:bg-red-950">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2 text-destructive">
+              <AlertCircle className="h-5 w-5" />
+              <p>{saveError}</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Card 1: Message Classification */}
       <Card>
         <CardHeader>
-          <CardTitle>Slack Integration</CardTitle>
+          <CardTitle>Message Classification</CardTitle>
           <CardDescription>
-            Configure your Slack workspace connection
+            Choose how Slack messages are categorized before grouping
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Integration settings will be added here.
-          </p>
+        <CardContent className="space-y-4">
+          <div className="space-y-3">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="radio"
+                name="classification"
+                value="llm"
+                checked={classificationMethod === 'llm'}
+                onChange={(e) => setClassificationMethod(e.target.value as ClassificationMethod)}
+                className="mt-1"
+              />
+              <div>
+                <div className="font-medium">LLM-based (GPT-4o-mini)</div>
+                <div className="text-sm text-muted-foreground">
+                  Uses OpenAI's GPT-4o-mini for semantic understanding and accurate classification.
+                  Better handles edge cases and ambiguous messages.
+                </div>
+              </div>
+            </label>
+
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="radio"
+                name="classification"
+                value="embedding"
+                checked={classificationMethod === 'embedding'}
+                onChange={(e) => setClassificationMethod(e.target.value as ClassificationMethod)}
+                className="mt-1"
+              />
+              <div>
+                <div className="font-medium">Embedding-based</div>
+                <div className="text-sm text-muted-foreground">
+                  Uses sentence-transformers (all-MiniLM-L6-v2) with cosine similarity.
+                  Faster and cheaper, but less accurate for ambiguous messages.
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-950 rounded-md border border-blue-200 dark:border-blue-800">
+            <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-blue-800 dark:text-blue-200">
+              <strong>Note:</strong> Bug events (manually entered via /bugs page) always use the
+              <code className="mx-1 px-1 bg-blue-100 dark:bg-blue-900 rounded">bug_report</code>
+              category and skip classification.
+            </p>
+          </div>
         </CardContent>
       </Card>
 
+      {/* Card 2: Semantic Grouping */}
       <Card>
         <CardHeader>
-          <CardTitle>Notifications</CardTitle>
+          <CardTitle>Semantic Grouping</CardTitle>
           <CardDescription>
-            Manage how you receive notifications
+            How messages are matched to existing concerns
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Notification preferences will be added here.
-          </p>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between p-4 bg-muted rounded-md">
+            <div>
+              <div className="font-medium">sentence-transformers</div>
+              <div className="text-sm text-muted-foreground">Model: all-MiniLM-L6-v2</div>
+            </div>
+            <div className="text-sm text-muted-foreground">
+              (read-only)
+            </div>
+          </div>
+
+          <div className="flex items-start gap-2 p-3 bg-muted rounded-md">
+            <Info className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-muted-foreground">
+              This embedding model is used for semantic similarity matching to group messages
+              with related concerns. Unlike classification, grouping uses cosine similarity
+              with temporal decay to find the best matching concern.
+            </p>
+          </div>
         </CardContent>
       </Card>
+
+      {/* Card 3: Bot Configuration */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Bot Configuration</CardTitle>
+          <CardDescription>
+            Filter out messages from your bot to prevent self-processing
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <label htmlFor="botName" className="text-sm font-medium">
+              Bot Name / User ID
+            </label>
+            <input
+              id="botName"
+              type="text"
+              value={botName}
+              onChange={(e) => setBotName(e.target.value)}
+              placeholder="e.g., U01234567 or BotName"
+              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+            <p className="text-sm text-muted-foreground">
+              Messages from this user will be ignored during processing.
+              Enter either the Slack user ID (e.g., U01234567) or bot name.
+            </p>
+          </div>
+
+          {!botName.trim() && (
+            <div className="flex items-start gap-2 p-3 bg-yellow-50 dark:bg-yellow-950 rounded-md border border-yellow-200 dark:border-yellow-800">
+              <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400 mt-0.5 flex-shrink-0" />
+              <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                No bot filtering configured. Bot messages will be processed like regular messages.
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Save Button */}
+      <div className="flex items-center justify-end gap-4">
+        {hasChanges && (
+          <p className="text-sm text-muted-foreground">
+            You have unsaved changes
+          </p>
+        )}
+        <Button
+          onClick={handleSave}
+          disabled={!hasChanges || updating}
+          className="min-w-[120px]"
+        >
+          {updating ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Saving...
+            </>
+          ) : (
+            <>
+              <Save className="mr-2 h-4 w-4" />
+              Save Settings
+            </>
+          )}
+        </Button>
+      </div>
     </div>
   )
 }

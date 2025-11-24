@@ -14,8 +14,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from fde_slackbot.classifier import MessageClassifier
+from fde_slackbot.classifier.llm_classifier import LLMClassifier
 from fde_slackbot.grouping import ConcernGrouper
 from fde_slackbot.grouping.db import get_slack_event_by_id, get_bug_event_by_id
+from fde_slackbot.settings import get_settings
 
 # Configure logging
 logging.basicConfig(
@@ -41,10 +43,54 @@ app.add_middleware(
 )
 
 # Initialize classifier and grouper (reuse instances for performance)
-classifier = MessageClassifier(confidence_threshold=0.5)
-grouper = ConcernGrouper(classifier=classifier)
+# Note: Classifier selection is done per-request based on settings
+embedding_classifier = MessageClassifier(confidence_threshold=0.5)
+llm_classifier = None  # Lazy initialization on first use
+
+# Create grouper with embedding classifier (for backward compatibility)
+grouper = ConcernGrouper(classifier=embedding_classifier)
 
 logger.info("FDE Slackbot API initialized")
+
+
+def get_classifier():
+    """
+    Get the appropriate classifier based on current settings.
+
+    Returns the LLM or embedding classifier depending on settings.
+    Lazy-initializes LLM classifier on first use.
+    """
+    global llm_classifier
+
+    settings = get_settings()
+
+    if settings.classification_method == "llm":
+        # Lazy initialization of LLM classifier
+        if llm_classifier is None:
+            logger.info(f"Initializing LLM classifier with model: {settings.llm_model}")
+            llm_classifier = LLMClassifier(model=settings.llm_model)
+        return llm_classifier
+    else:
+        return embedding_classifier
+
+
+def should_filter_bot_message(user_id: str) -> bool:
+    """
+    Check if a message should be filtered based on bot name setting.
+
+    Args:
+        user_id: The user_id from the Slack message
+
+    Returns:
+        True if message should be filtered (is from bot), False otherwise
+    """
+    settings = get_settings()
+
+    if not settings.bot_name:
+        return False  # No bot filtering configured
+
+    # Check if user_id matches bot_name
+    return user_id == settings.bot_name
 
 
 # Request/Response models
@@ -111,9 +157,11 @@ async def process_message(request: ProcessMessageRequest):
 
     This endpoint:
     1. Fetches the message from slack_events table
-    2. Classifies it using MessageClassifier
-    3. If relevant, groups it using ConcernGrouper
-    4. Returns the processing result
+    2. Filters bot messages based on settings
+    3. Classifies it using LLM or embedding classifier (based on settings)
+    4. If irrelevant, returns early (no grouping)
+    5. Groups relevant messages using ConcernGrouper
+    6. Returns the processing result
 
     Args:
         request: ProcessMessageRequest with message_id
@@ -145,8 +193,21 @@ async def process_message(request: ProcessMessageRequest):
                 detail="Message has no text content"
             )
 
-        # Step 2: Classify the message
-        classification = classifier.classify(message_text)
+        # Step 2: Check bot filtering
+        user_id = slack_event.get('user_id', '')
+        if should_filter_bot_message(user_id):
+            logger.info(f"Filtering bot message from user: {user_id}")
+            return ProcessMessageResponse(
+                success=True,
+                message_id=request.message_id,
+                category="irrelevant",
+                confidence=1.0,
+                is_relevant=False
+            )
+
+        # Step 3: Classify the message using configured classifier
+        current_classifier = get_classifier()
+        classification = current_classifier.classify(message_text)
 
         logger.info(
             f"Classified message {request.message_id}: "
@@ -155,7 +216,7 @@ async def process_message(request: ProcessMessageRequest):
             f"is_relevant={classification.is_relevant}"
         )
 
-        # Step 3: If irrelevant, return early (no grouping)
+        # Step 4: If irrelevant, return early (no grouping)
         if classification.category == "irrelevant":
             return ProcessMessageResponse(
                 success=True,
@@ -165,7 +226,7 @@ async def process_message(request: ProcessMessageRequest):
                 is_relevant=False
             )
 
-        # Step 4: Group the message into a concern
+        # Step 5: Group the message into a concern
         result = grouper.process_message(
             message_id=request.message_id,
             message_text=message_text,
@@ -192,7 +253,7 @@ async def process_message(request: ProcessMessageRequest):
             f"new_concern={result.is_new_concern}"
         )
 
-        # Step 5: Return success response
+        # Step 6: Return success response
         return ProcessMessageResponse(
             success=True,
             message_id=request.message_id,
