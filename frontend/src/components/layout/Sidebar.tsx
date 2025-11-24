@@ -1,10 +1,9 @@
 import { Link, useLocation } from 'react-router-dom'
 import { cn } from '@/lib/utils'
-import { Home, Ticket, MessageSquare, Layers, Settings } from 'lucide-react'
+import { Home, MessageSquare, Layers, Settings } from 'lucide-react'
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: Home },
-  { name: 'Tickets', href: '/tickets', icon: Ticket },
   { name: 'Messages', href: '/messages', icon: MessageSquare },
   { name: 'Concerns', href: '/concerns', icon: Layers },
   { name: 'Settings', href: '/settings', icon: Settings },

@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useConcerns } from '@/hooks/useConcerns'
 import { MessageSquare, Clock, TrendingUp } from 'lucide-react'
 import type { ConcernCategory } from '@/types'
@@ -40,6 +42,19 @@ function formatCategory(category: string): string {
 
 export default function Concerns() {
   const { concerns, loading, error } = useConcerns(undefined, 'open')
+  const [selectedCategory, setSelectedCategory] = useState<ConcernCategory | 'all'>('all')
+
+  const filteredConcerns = selectedCategory === 'all'
+    ? concerns
+    : concerns.filter(c => c.category === selectedCategory)
+
+  const categoryLabels: Record<ConcernCategory | 'all', string> = {
+    all: 'All',
+    bug_report: 'Bug Reports',
+    feature_request: 'Feature Requests',
+    support_question: 'Support Questions',
+    general_question: 'General Questions',
+  }
 
   return (
     <div className="space-y-6">
@@ -102,23 +117,48 @@ export default function Concerns() {
       {/* Concerns List */}
       <Card>
         <CardHeader>
-          <CardTitle>Open Concerns ({concerns.length})</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>Open Concerns ({filteredConcerns.length})</CardTitle>
+          </div>
         </CardHeader>
         <CardContent>
+          {/* Category Filter Tabs */}
+          <Tabs value={selectedCategory} onValueChange={(value) => setSelectedCategory(value as ConcernCategory | 'all')} className="mb-6">
+            <TabsList className="grid w-full grid-cols-5">
+              <TabsTrigger value="all">
+                All ({concerns.length})
+              </TabsTrigger>
+              <TabsTrigger value="bug_report">
+                Bugs ({concerns.filter(c => c.category === 'bug_report').length})
+              </TabsTrigger>
+              <TabsTrigger value="feature_request">
+                Features ({concerns.filter(c => c.category === 'feature_request').length})
+              </TabsTrigger>
+              <TabsTrigger value="support_question">
+                Support ({concerns.filter(c => c.category === 'support_question').length})
+              </TabsTrigger>
+              <TabsTrigger value="general_question">
+                General ({concerns.filter(c => c.category === 'general_question').length})
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+
           {loading ? (
             <p className="text-muted-foreground">Loading concerns...</p>
           ) : error ? (
             <p className="text-destructive">Error: {error}</p>
-          ) : concerns.length === 0 ? (
+          ) : filteredConcerns.length === 0 ? (
             <div className="text-center py-12">
-              <p className="text-muted-foreground text-lg">No open concerns</p>
+              <p className="text-muted-foreground text-lg">
+                No {selectedCategory === 'all' ? 'open' : categoryLabels[selectedCategory].toLowerCase()}
+              </p>
               <p className="text-muted-foreground text-sm mt-2">
                 Concerns will appear here when similar messages are grouped together
               </p>
             </div>
           ) : (
             <div className="space-y-4">
-              {concerns.map((concern) => (
+              {filteredConcerns.map((concern) => (
                 <div
                   key={concern.id}
                   className="border-l-4 border-primary/20 pl-4 py-3 hover:bg-accent/50 transition-colors rounded-r cursor-pointer"

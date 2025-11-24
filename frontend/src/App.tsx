@@ -2,8 +2,6 @@ import { createHashRouter, RouterProvider } from 'react-router-dom'
 import { SupabaseProvider } from './context/SupabaseContext'
 import MainLayout from './components/layout/MainLayout'
 import Dashboard from './pages/Dashboard'
-import Tickets from './pages/Tickets'
-import TicketDetail from './pages/TicketDetail'
 import Messages from './pages/Messages'
 import Concerns from './pages/Concerns'
 import Settings from './pages/Settings'
@@ -18,14 +16,6 @@ const router = createHashRouter([
       {
         index: true,
         element: <Dashboard />,
-      },
-      {
-        path: 'tickets',
-        element: <Tickets />,
-      },
-      {
-        path: 'tickets/:id',
-        element: <TicketDetail />,
       },
       {
         path: 'messages',

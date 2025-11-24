@@ -111,7 +111,7 @@ export default function Messages() {
       }
 
       // Insert into slack_events table
-      const { error: insertError } = await supabase
+      const { data: insertedData, error: insertError } = await supabase
         .from('slack_events')
         .insert({
           event_id: eventId,
@@ -122,12 +122,33 @@ export default function Messages() {
           message_ts: messageTs,
           raw_payload: rawPayload,
         })
+        .select()
+        .single()
 
       if (insertError) {
         throw insertError
       }
 
       console.log('Test message added successfully:', eventId)
+
+      // Call processing edge function to classify and group the message
+      try {
+        const { data: processResult, error: processError } = await supabase.functions.invoke(
+          'process-slack-event',
+          {
+            body: { message_ids: [insertedData.id] }
+          }
+        )
+
+        if (processError) {
+          console.error('Processing error:', processError)
+        } else {
+          console.log('Message processed:', processResult)
+        }
+      } catch (procError) {
+        // Don't fail the whole operation - message is already inserted
+        console.error('Failed to process message:', procError)
+      }
 
       // Cooldown period to prevent spam
       setTimeout(() => setIsInserting(false), 1000)
