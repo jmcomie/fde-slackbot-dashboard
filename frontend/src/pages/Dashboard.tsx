@@ -35,7 +35,7 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Dashboard</h1>
+        <h1 className="text-3xl font-bold">Summary</h1>
         <p className="text-muted-foreground">
           Overview of customer tickets and messages
         </p>

@@ -3,11 +3,11 @@ import { cn } from '@/lib/utils'
 import { Home, MessageSquare, LayoutDashboard, Bug, Layers, Settings } from 'lucide-react'
 
 const navigation = [
-  { name: 'Dashboard', href: '/', icon: Home },
-  { name: 'Messages', href: '/messages', icon: MessageSquare },
-  { name: 'Message Dashboard', href: '/message-dashboard', icon: LayoutDashboard },
-  { name: 'Bugs', href: '/bugs', icon: Bug },
+  { name: 'Dashboard', href: '/message-dashboard', icon: LayoutDashboard },
+  { name: 'Summary', href: '/', icon: Home },
   { name: 'Tickets', href: '/concerns', icon: Layers },
+  { name: 'Bugs', href: '/bugs', icon: Bug },
+  { name: 'Messages', href: '/messages', icon: MessageSquare },
   { name: 'Settings', href: '/settings', icon: Settings },
 ]
 
