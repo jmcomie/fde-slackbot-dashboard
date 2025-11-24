@@ -66,7 +66,7 @@ export function MessageContextModal({ message, onClose }: MessageContextModalPro
             <div>
               <h2 className="text-lg font-semibold">Message Context</h2>
               <p className="text-sm text-muted-foreground">
-                Viewing messages before and after in #{message.channel}
+                Viewing messages before and after in #{message.channel_name || message.channel}
               </p>
             </div>
             <Button variant="ghost" size="sm" onClick={onClose}>
@@ -104,7 +104,7 @@ export function MessageContextModal({ message, onClose }: MessageContextModalPro
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1 flex-wrap">
                               <span className={`text-sm ${shouldBeBold(msg) ? 'font-bold' : 'font-semibold'}`}>
-                                {msg.user_name}
+                                {msg.user_name || msg.user_id}
                               </span>
                               {msg.thread_ts && msg.message_ts === msg.thread_ts && (
                                 <Badge variant="outline" className="text-xs">
@@ -137,7 +137,7 @@ export function MessageContextModal({ message, onClose }: MessageContextModalPro
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-2 flex-wrap">
                           <span className="text-sm font-bold">
-                            {message.user_name}
+                            {message.user_name || message.user_id}
                           </span>
                           {message.thread_ts && message.message_ts === message.thread_ts && (
                             <Badge variant="default" className="text-xs">
@@ -182,7 +182,7 @@ export function MessageContextModal({ message, onClose }: MessageContextModalPro
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1 flex-wrap">
                               <span className={`text-sm ${shouldBeBold(msg) ? 'font-bold' : 'font-semibold'}`}>
-                                {msg.user_name}
+                                {msg.user_name || msg.user_id}
                               </span>
                               {msg.thread_ts && msg.message_ts === msg.thread_ts && (
                                 <Badge variant="outline" className="text-xs">

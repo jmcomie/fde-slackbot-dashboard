@@ -15,7 +15,7 @@ export interface User {
 export interface Message {
   id: string
   user_id: string
-  user_name: string
+  user_name?: string
   content: string
   channel: string
   channel_name?: string

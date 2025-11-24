@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { resolveNames } from '../_shared/slack-api.ts'
 
 console.log("process-slack-message function started")
 
@@ -183,7 +184,24 @@ serve(async (req) => {
 
     console.log('Processing new Slack message:', event.text)
 
-    // Step 1: Insert the message into slack_events table
+    // Step 1: Resolve human-readable names from Slack API
+    const botToken = Deno.env.get('SLACK_BOT_TOKEN')
+    let userName = event.user
+    let channelName = event.channel
+
+    if (botToken) {
+      try {
+        [userName, channelName] = await resolveNames(event.user, event.channel, botToken)
+        console.log(`Resolved names: user=${userName}, channel=${channelName}`)
+      } catch (err) {
+        console.error('Name resolution failed (non-blocking):', err)
+        // Fall back to IDs if resolution fails
+      }
+    } else {
+      console.warn('SLACK_BOT_TOKEN not configured - using IDs instead of names')
+    }
+
+    // Step 2: Insert the message into slack_events table
     const { data: insertedEvent, error: insertError } = await supabase
       .from('slack_events')
       .insert({
@@ -192,6 +210,8 @@ serve(async (req) => {
         team_id: payload.team_id,
         channel_id: event.channel,
         user_id: event.user,
+        user_name: userName,
+        channel_name: channelName,
         message_text: event.text,
         message_ts: event.ts,
         thread_ts: event.thread_ts,
@@ -207,7 +227,7 @@ serve(async (req) => {
 
     console.log('Inserted slack_event with id:', insertedEvent.id)
 
-    // Step 2: Trigger async processing (fire-and-forget)
+    // Step 3: Trigger async processing (fire-and-forget)
     const processUrl = `${supabaseUrl}/functions/v1/process-slack-event`
 
     // Don't await - let it process in background

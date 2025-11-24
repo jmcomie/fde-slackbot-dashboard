@@ -39,13 +39,13 @@ export function MessageItem({ message }: MessageItemProps) {
             {/* Message Header */}
             <div className="flex items-center gap-2 flex-wrap">
               <span className={`text-sm ${shouldBeBold ? 'font-bold' : 'font-semibold'}`}>
-                {message.user_name}
+                {message.user_name || message.user_id}
               </span>
 
               {/* Channel Badge */}
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
                 <Hash className="h-3 w-3" />
-                <span>{message.channel}</span>
+                <span>{message.channel_name || message.channel}</span>
               </div>
 
               {/* Thread Indicator */}

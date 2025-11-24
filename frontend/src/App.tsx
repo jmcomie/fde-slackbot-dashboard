@@ -17,15 +17,15 @@ const router = createHashRouter([
     children: [
       {
         index: true,
+        element: <MessageDashboard />,
+      },
+      {
+        path: 'summary',
         element: <Dashboard />,
       },
       {
         path: 'messages',
         element: <Messages />,
-      },
-      {
-        path: 'message-dashboard',
-        element: <MessageDashboard />,
       },
       {
         path: 'bugs',
