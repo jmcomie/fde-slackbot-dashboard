@@ -4,12 +4,26 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { useConcernsWithMessages } from '@/hooks/useConcernsWithMessages'
 import { ConcernMessageGroup } from '@/components/message-dashboard/ConcernMessageGroup'
-import { LayoutDashboard, MessageSquare, Bug, Sparkles, HelpCircle, MessageCircle } from 'lucide-react'
+import { LayoutDashboard, MessageSquare, Bug, Sparkles, HelpCircle, MessageCircle, ChevronsDown, ChevronsUp } from 'lucide-react'
 import type { ConcernCategory, ConcernStatus } from '@/types'
 
 export default function MessageDashboard() {
   const [selectedCategory, setSelectedCategory] = useState<ConcernCategory | 'all'>('all')
   const [selectedStatus, setSelectedStatus] = useState<ConcernStatus>('open')
+  const [allExpanded, setAllExpanded] = useState(() => {
+    const saved = localStorage.getItem('dashboard-all-expanded')
+    return saved !== null ? saved === 'true' : true
+  })
+
+  const handleExpandAll = () => {
+    setAllExpanded(true)
+    localStorage.setItem('dashboard-all-expanded', 'true')
+  }
+
+  const handleCollapseAll = () => {
+    setAllExpanded(false)
+    localStorage.setItem('dashboard-all-expanded', 'false')
+  }
 
   const categoryFilter = selectedCategory === 'all' ? undefined : selectedCategory
   const { concernsWithMessages, loading, error } = useConcernsWithMessages(categoryFilter, selectedStatus)
@@ -97,6 +111,26 @@ export default function MessageDashboard() {
           <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <CardTitle>Grouped Messages ({allConcerns.length})</CardTitle>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExpandAll}
+                  disabled={allExpanded}
+                >
+                  <ChevronsDown className="h-4 w-4 mr-1" />
+                  Expand All
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCollapseAll}
+                  disabled={!allExpanded}
+                >
+                  <ChevronsUp className="h-4 w-4 mr-1" />
+                  Collapse All
+                </Button>
+              </div>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-sm font-medium">Status:</span>
@@ -159,7 +193,7 @@ export default function MessageDashboard() {
           ) : (
             <div className="space-y-6">
               {allConcerns.map((concern) => (
-                <ConcernMessageGroup key={concern.id} concern={concern} />
+                <ConcernMessageGroup key={concern.id} concern={concern} defaultExpanded={allExpanded} />
               ))}
             </div>
           )}

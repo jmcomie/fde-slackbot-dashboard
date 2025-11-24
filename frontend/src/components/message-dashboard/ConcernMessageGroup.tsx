@@ -12,6 +12,7 @@ import type { ConcernCategory, ConcernStatus } from '@/types'
 
 interface ConcernMessageGroupProps {
   concern: ConcernWithMessages
+  defaultExpanded?: boolean
 }
 
 function getCategoryBadgeVariant(category: ConcernCategory): 'default' | 'secondary' | 'destructive' | 'outline' {
@@ -71,8 +72,13 @@ function formatStatus(status: string): string {
  * Component to display a concern (ticket) with its grouped messages
  * Shows category, bug count, and collapsible message list
  */
-export function ConcernMessageGroup({ concern }: ConcernMessageGroupProps) {
-  const [isExpanded, setIsExpanded] = useState(true)
+export function ConcernMessageGroup({ concern, defaultExpanded = true }: ConcernMessageGroupProps) {
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded)
+
+  // Sync local state when parent changes defaultExpanded (for expand/collapse all)
+  useEffect(() => {
+    setIsExpanded(defaultExpanded)
+  }, [defaultExpanded])
   const [showStatusDropdown, setShowStatusDropdown] = useState(false)
   const [showMoveDropdown, setShowMoveDropdown] = useState(false)
   const { updating, error, updateStatus } = useConcernUpdate()
