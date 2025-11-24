@@ -70,3 +70,63 @@ export interface DashboardStats {
   resolved_today: number
   avg_response_time: number
 }
+
+// ========== Concern Grouping Types ==========
+
+export type ConcernCategory = 'bug_report' | 'feature_request' | 'support_question' | 'general_question'
+export type ConcernStatus = 'open' | 'in_progress' | 'resolved' | 'closed'
+export type ConcernPriority = 'high' | 'medium' | 'low'
+export type GroupingMethod =
+  | 'new_concern'
+  | 'thread_match'
+  | 'cosine_high_conf'
+  | 'cosine_medium_conf'
+  | 'low_similarity'
+  | 'exact_duplicate'
+  | 'manual'
+  | 'initial'
+export type Confidence = 'high' | 'medium' | 'low'
+
+// Represents a conceptual issue grouping related messages
+export interface Concern {
+  id: string
+  category: ConcernCategory
+  centroid_embedding: number[]
+  title: string
+  summary?: string
+  message_count: number
+  status: ConcernStatus
+  priority?: ConcernPriority
+  first_seen: string
+  last_updated: string
+  grouping_method: GroupingMethod
+  created_at: string
+}
+
+// Maps messages to concerns (polymorphic join table)
+export interface ConcernGroup {
+  id: string
+  concern_id: string
+  foreign_table: string
+  foreign_identifier: string
+  similarity_score?: number
+  grouping_method: GroupingMethod
+  confidence: Confidence
+  grouped_at: string
+}
+
+// Concern with its related messages (for detail view)
+export interface ConcernWithMessages extends Concern {
+  messages: Message[]
+}
+
+// For displaying concern cards in the UI
+export interface ConcernSummary {
+  id: string
+  title: string
+  category: ConcernCategory
+  status: ConcernStatus
+  message_count: number
+  first_seen: string
+  last_updated: string
+}

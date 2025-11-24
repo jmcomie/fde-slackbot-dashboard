@@ -2,6 +2,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useMessages } from '@/hooks/useMessages'
+import { ThreadView } from '@/components/messages/ThreadView'
+import { ChannelContextView } from '@/components/messages/ChannelContextView'
 import { TestTube } from 'lucide-react'
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -205,11 +207,22 @@ export default function Messages() {
                     </div>
                   </div>
                   <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+
+                  {/* Thread context - show if message is in a thread */}
                   {message.thread_ts && (
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Thread reply
-                    </p>
+                    <ThreadView
+                      threadTs={message.thread_ts}
+                      channelId={message.channel}
+                    />
                   )}
+
+                  {/* Channel context - show surrounding messages */}
+                  <ChannelContextView
+                    messageTs={message.message_ts}
+                    channelId={message.channel}
+                    beforeCount={3}
+                    afterCount={3}
+                  />
                 </div>
               ))}
             </div>

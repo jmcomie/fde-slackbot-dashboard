@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard'
 import Tickets from './pages/Tickets'
 import TicketDetail from './pages/TicketDetail'
 import Messages from './pages/Messages'
+import Concerns from './pages/Concerns'
 import Settings from './pages/Settings'
 import NotFound from './pages/NotFound'
 
@@ -29,6 +30,10 @@ const router = createHashRouter([
       {
         path: 'messages',
         element: <Messages />,
+      },
+      {
+        path: 'concerns',
+        element: <Concerns />,
       },
       {
         path: 'settings',
