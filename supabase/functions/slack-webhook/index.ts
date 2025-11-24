@@ -207,29 +207,23 @@ serve(async (req) => {
 
     console.log('Inserted slack_event with id:', insertedEvent.id)
 
-    // Step 2: Call processing edge function to classify and group the message
+    // Step 2: Trigger async processing (fire-and-forget)
     const processUrl = `${supabaseUrl}/functions/v1/process-slack-event`
 
-    try {
-      const processResponse = await fetch(processUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabaseSecretKey}`
-        },
-        body: JSON.stringify({ message_ids: [insertedEvent.id] }),
-      })
+    // Don't await - let it process in background
+    fetch(processUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseSecretKey}`
+      },
+      body: JSON.stringify({ message_ids: [insertedEvent.id] }),
+    })
+      .then(res => res.ok ? res.json() : Promise.reject(res))
+      .then(result => console.log('Processing completed:', result))
+      .catch(err => console.error('Processing failed (non-blocking):', err))
 
-      if (!processResponse.ok) {
-        console.error('Processing edge function failed:', await processResponse.text())
-      } else {
-        const processResult = await processResponse.json()
-        console.log('Processing result:', processResult)
-      }
-    } catch (processError) {
-      // Log but don't fail the webhook - message is already saved
-      console.error('Error calling process edge function:', processError)
-    }
+    console.log('Message queued for processing:', insertedEvent.id)
 
     return new Response(
       JSON.stringify({
