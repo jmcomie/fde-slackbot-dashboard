@@ -23,6 +23,9 @@ interface ChannelContext {
 /**
  * Hook to fetch and manage channel context (messages before and after a target message)
  *
+ * Queries slack_events table directly using composite (channel_id, message_ts) index.
+ * Assumes comprehensive message ingestion - all channel messages are in the database.
+ *
  * @param messageTs - The target message timestamp
  * @param channelId - The channel ID
  * @param beforeCount - Number of messages to fetch before the target (default: 5)
@@ -63,7 +66,8 @@ export function useChannelContext(
     setError(null)
 
     try {
-      // Try to fetch from local database first
+      // Query messages before target timestamp
+      // Uses idx_slack_events_channel_time composite index for optimal performance
       const { data: beforeMessages, error: beforeError } = await supabase
         .from('slack_events')
         .select('*')
@@ -72,6 +76,7 @@ export function useChannelContext(
         .order('message_ts', { ascending: false })
         .limit(beforeCount)
 
+      // Query messages after target timestamp
       const { data: afterMessages, error: afterError } = await supabase
         .from('slack_events')
         .select('*')
@@ -84,47 +89,10 @@ export function useChannelContext(
         throw beforeError || afterError
       }
 
-      // Check if we have enough context locally
-      const hasEnoughBefore = beforeMessages && beforeMessages.length >= beforeCount
-      const hasEnoughAfter = afterMessages && afterMessages.length >= afterCount
-
-      if (hasEnoughBefore && hasEnoughAfter) {
-        // We have enough context locally
-        setContext({
-          before: (beforeMessages || []).reverse().map(mapSlackEventToMessage), // Reverse to get chronological order
-          after: (afterMessages || []).map(mapSlackEventToMessage),
-        })
-        setLoading(false)
-        return
-      }
-
-      // Need to fetch from Slack API
-      console.log('Fetching channel context from Slack API...')
-
-      const { data: fetchResult, error: fetchError } = await supabase.functions.invoke(
-        'fetch-channel-context',
-        {
-          body: {
-            message_ts: messageTs,
-            channel_id: channelId,
-            before_count: beforeCount,
-            after_count: afterCount,
-          },
-        }
-      )
-
-      if (fetchError) {
-        throw fetchError
-      }
-
-      if (!fetchResult.success) {
-        throw new Error(fetchResult.error || 'Failed to fetch channel context')
-      }
-
-      // Use the data returned from the Edge Function (already formatted)
+      // Reverse 'before' messages to get chronological order
       setContext({
-        before: (fetchResult.before || []).map(mapSlackEventToMessage),
-        after: (fetchResult.after || []).map(mapSlackEventToMessage),
+        before: (beforeMessages || []).reverse().map(mapSlackEventToMessage),
+        after: (afterMessages || []).map(mapSlackEventToMessage),
       })
 
     } catch (err) {

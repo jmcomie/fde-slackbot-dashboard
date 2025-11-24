@@ -27,6 +27,9 @@ interface ThreadContext {
 /**
  * Hook to fetch and manage thread context (parent message + replies)
  *
+ * Queries slack_events table directly using indexed thread_ts column.
+ * Assumes comprehensive message ingestion - all thread messages are in the database.
+ *
  * @param threadTs - The thread timestamp (identifies the thread)
  * @param channelId - The channel ID where the thread exists
  * @returns Thread context data, loading state, error, and fetch function
@@ -60,62 +63,32 @@ export function useThreadContext(threadTs: string | undefined, channelId: string
     setError(null)
 
     try {
-      // First, check if we have the thread in the database
-      const { data: localMessages, error: localError } = await supabase
+      // Query all messages in thread directly from database
+      // Uses idx_slack_events_thread_ts index for optimal performance
+      const { data: messages, error: queryError } = await supabase
         .from('slack_events')
         .select('*')
         .eq('thread_ts', threadTs)
+        .eq('channel_id', channelId)
         .order('message_ts', { ascending: true })
 
-      if (localError) {
-        throw localError
+      if (queryError) {
+        throw queryError
       }
 
-      // If we have messages locally and the parent exists, use them
-      if (localMessages && localMessages.length > 0) {
-        const parent = localMessages.find(m => m.message_ts === m.thread_ts)
-        const replies = localMessages.filter(m => m.message_ts !== m.thread_ts)
-
+      if (!messages || messages.length === 0) {
         setContext({
-          parentMessage: parent ? mapSlackEventToMessage(parent) : null,
-          replies: replies.map(mapSlackEventToMessage),
-          totalReplies: replies.length,
+          parentMessage: null,
+          replies: [],
+          totalReplies: 0,
         })
         setLoading(false)
         return
       }
 
-      // Thread not in database, fetch from Slack via Edge Function
-      console.log('Fetching thread from Slack API...')
-
-      const { data: fetchResult, error: fetchError } = await supabase.functions.invoke(
-        'fetch-thread-context',
-        {
-          body: { thread_ts: threadTs, channel_id: channelId },
-        }
-      )
-
-      if (fetchError) {
-        throw fetchError
-      }
-
-      if (!fetchResult.success) {
-        throw new Error(fetchResult.error || 'Failed to fetch thread context')
-      }
-
-      // Now fetch from database again (Edge Function stored the messages)
-      const { data: updatedMessages, error: updatedError } = await supabase
-        .from('slack_events')
-        .select('*')
-        .eq('thread_ts', threadTs)
-        .order('message_ts', { ascending: true })
-
-      if (updatedError) {
-        throw updatedError
-      }
-
-      const parent = updatedMessages?.find(m => m.message_ts === m.thread_ts)
-      const replies = updatedMessages?.filter(m => m.message_ts !== m.thread_ts) || []
+      // Separate parent (message_ts === thread_ts) from replies
+      const parent = messages.find(m => m.message_ts === m.thread_ts)
+      const replies = messages.filter(m => m.message_ts !== m.thread_ts)
 
       setContext({
         parentMessage: parent ? mapSlackEventToMessage(parent) : null,

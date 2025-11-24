@@ -5,11 +5,26 @@ console.log("process-slack-message function started")
 
 interface SlackEvent {
   type: string
-  user: string
-  text: string
+  subtype?: string
+  user?: string
+  text?: string
   ts: string
   channel: string
   thread_ts?: string
+  // Fields for message_changed events
+  message?: {
+    user: string
+    text: string
+    ts: string
+    thread_ts?: string
+  }
+  previous_message?: {
+    user: string
+    text: string
+    ts: string
+  }
+  // Fields for message_deleted events
+  deleted_ts?: string
 }
 
 interface SlackPayload {
@@ -49,7 +64,7 @@ serve(async (req) => {
     const supabaseSecretKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseSecretKey)
 
-    // Only process message events
+    // Only process message events (including subtypes)
     if (payload.type !== 'event_callback' || payload.event.type !== 'message') {
       return new Response(
         JSON.stringify({
@@ -63,20 +78,123 @@ serve(async (req) => {
       )
     }
 
-    console.log('Processing Slack message:', payload.event.text)
+    const event = payload.event
+
+    // Handle message_changed subtype (edits)
+    if (event.subtype === 'message_changed' && event.message) {
+      console.log('Processing message edit:', event.message.ts)
+
+      const { error: updateError } = await supabase
+        .from('slack_events')
+        .update({
+          message_text: event.message.text,
+          raw_payload: payload,
+        })
+        .eq('channel_id', event.channel)
+        .eq('message_ts', event.message.ts)
+
+      if (updateError) {
+        console.error('Error updating edited message:', updateError)
+        // Don't throw - message edit is not critical
+      } else {
+        console.log('Successfully updated edited message')
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: "Message edit processed",
+        }),
+        {
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          },
+          status: 200,
+        }
+      )
+    }
+
+    // Handle message_deleted subtype
+    if (event.subtype === 'message_deleted' && event.deleted_ts) {
+      console.log('Processing message deletion:', event.deleted_ts)
+
+      // Soft delete: Update message_text to indicate deletion
+      const { error: deleteError } = await supabase
+        .from('slack_events')
+        .update({
+          message_text: '[deleted]',
+          raw_payload: payload,
+        })
+        .eq('channel_id', event.channel)
+        .eq('message_ts', event.deleted_ts)
+
+      if (deleteError) {
+        console.error('Error processing deleted message:', deleteError)
+        // Don't throw - message deletion is not critical
+      } else {
+        console.log('Successfully processed deleted message')
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: "Message deletion processed",
+        }),
+        {
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          },
+          status: 200,
+        }
+      )
+    }
+
+    // Handle bot messages and other subtypes we want to ignore
+    if (event.subtype && !['message_changed', 'message_deleted'].includes(event.subtype)) {
+      console.log('Ignoring message subtype:', event.subtype)
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: `Ignored message subtype: ${event.subtype}`
+        }),
+        {
+          headers: { "Content-Type": "application/json" },
+          status: 200,
+        }
+      )
+    }
+
+    // Handle standard new messages (no subtype or subtypes we don't handle above)
+    if (!event.text || !event.user) {
+      console.log('Message missing required fields (text or user)')
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: "Message missing required fields"
+        }),
+        {
+          headers: { "Content-Type": "application/json" },
+          status: 200,
+        }
+      )
+    }
+
+    console.log('Processing new Slack message:', event.text)
 
     // Step 1: Insert the message into slack_events table
     const { data: insertedEvent, error: insertError } = await supabase
       .from('slack_events')
       .insert({
-        event_id: `slack_${payload.event.ts}_${Date.now()}`,
-        event_type: payload.event.type,
+        event_id: `slack_${event.ts}_${Date.now()}`,
+        event_type: event.type,
         team_id: payload.team_id,
-        channel_id: payload.event.channel,
-        user_id: payload.event.user,
-        message_text: payload.event.text,
-        message_ts: payload.event.ts,
-        thread_ts: payload.event.thread_ts,
+        channel_id: event.channel,
+        user_id: event.user,
+        message_text: event.text,
+        message_ts: event.ts,
+        thread_ts: event.thread_ts,
         raw_payload: payload,
       })
       .select()
