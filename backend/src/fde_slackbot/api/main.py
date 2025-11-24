@@ -58,13 +58,31 @@ def get_embedding_classifier():
     Get the embedding classifier based on current settings.
 
     Creates a fresh classifier to pick up embedding provider/model changes.
+    Auto-corrects mismatched provider/model combinations.
     """
     settings = get_settings(use_cache=False)
 
+    provider = settings.embedding_provider
+    model = settings.embedding_model
+
+    # Auto-correct mismatched provider/model combinations
+    if provider == "openai" and ("MiniLM" in model or "mpnet" in model):
+        logger.warning(
+            f"Embedding model '{model}' is not compatible with OpenAI provider. "
+            f"Using 'text-embedding-3-small' instead."
+        )
+        model = "text-embedding-3-small"
+    elif provider == "sentence-transformers" and model.startswith("text-embedding"):
+        logger.warning(
+            f"Embedding model '{model}' is not compatible with sentence-transformers provider. "
+            f"Using 'all-MiniLM-L6-v2' instead."
+        )
+        model = "all-MiniLM-L6-v2"
+
     return MessageClassifier(
         confidence_threshold=0.5,
-        embedding_provider=settings.embedding_provider,
-        embedding_model=settings.embedding_model
+        embedding_provider=provider,
+        embedding_model=model
     )
 
 
@@ -99,7 +117,7 @@ def get_classifier():
             custom_context=settings.llm_context
         )
     else:
-        return embedding_classifier
+        return get_embedding_classifier()
 
 
 def should_filter_bot_message(user_id: str) -> bool:
