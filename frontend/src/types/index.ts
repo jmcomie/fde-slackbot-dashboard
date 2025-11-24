@@ -143,6 +143,7 @@ export interface ConcernSummary {
 // ========== Settings Types ==========
 
 export type ClassificationMethod = 'embedding' | 'llm'
+export type EmbeddingProvider = 'sentence-transformers' | 'openai'
 
 // Application-wide settings
 export interface Settings {
@@ -151,7 +152,9 @@ export interface Settings {
   classification_method: ClassificationMethod
   llm_model: string
   llm_context?: string | null
-  grouping_model: string
+  embedding_provider: EmbeddingProvider
+  embedding_model: string
+  grouping_model: string // DEPRECATED: Use embedding_model instead
   created_at: string
   updated_at: string
 }

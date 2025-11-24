@@ -8,6 +8,7 @@ from uuid import UUID
 
 
 ClassificationMethod = Literal["embedding", "llm"]
+EmbeddingProvider = Literal["sentence-transformers", "openai"]
 
 
 class Settings(BaseModel):
@@ -42,9 +43,19 @@ class Settings(BaseModel):
         description="Optional custom context for LLM classification prompt"
     )
 
+    embedding_provider: EmbeddingProvider = Field(
+        default="sentence-transformers",
+        description="Provider for semantic grouping embeddings: 'sentence-transformers' (local, free) or 'openai' (API, paid)"
+    )
+
+    embedding_model: str = Field(
+        default="all-MiniLM-L6-v2",
+        description="Model name for embeddings (provider-specific)"
+    )
+
     grouping_model: str = Field(
         default="all-MiniLM-L6-v2",
-        description="Sentence-transformers model for semantic grouping"
+        description="DEPRECATED: Use embedding_model instead. Kept for backward compatibility."
     )
 
     class Config:

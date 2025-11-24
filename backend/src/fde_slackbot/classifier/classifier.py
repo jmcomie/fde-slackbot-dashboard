@@ -33,6 +33,7 @@ class MessageClassifier:
     def __init__(
         self,
         confidence_threshold: float = DEFAULT_CONFIDENCE_THRESHOLD,
+        embedding_provider: str = "sentence-transformers",
         embedding_model: str = EMBEDDING_MODEL_NAME,
         enable_regex_filter: bool = True,
     ):
@@ -42,7 +43,9 @@ class MessageClassifier:
         Args:
             confidence_threshold: Minimum confidence to consider message relevant.
                                  Default: 0.7
-            embedding_model: Name of sentence transformer model to use.
+            embedding_provider: Embedding provider - "sentence-transformers" or "openai".
+                               Default: "sentence-transformers"
+            embedding_model: Name of embedding model to use (provider-specific).
                            Default: "all-MiniLM-L6-v2"
             enable_regex_filter: Whether to use regex pre-filtering.
                                Default: True (recommended for performance)
@@ -56,7 +59,10 @@ class MessageClassifier:
         else:
             self.regex_filter = None
 
-        self.embedding_classifier = EmbeddingClassifier(model_name=embedding_model)
+        self.embedding_classifier = EmbeddingClassifier(
+            provider=embedding_provider,
+            model_name=embedding_model
+        )
 
     def classify(self, message: str) -> ClassificationResult:
         """

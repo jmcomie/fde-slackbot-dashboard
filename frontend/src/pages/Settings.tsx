@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { useSettings } from '@/hooks/useSettings'
 import { Save, Loader2, CheckCircle2, AlertCircle, Info } from 'lucide-react'
-import type { ClassificationMethod } from '@/types'
+import type { ClassificationMethod, EmbeddingProvider } from '@/types'
 
 export default function Settings() {
   const { settings, loading, error, updating, updateSettings } = useSettings()
@@ -16,6 +16,10 @@ export default function Settings() {
     settings?.classification_method || 'llm'
   )
   const [llmContext, setLlmContext] = useState(settings?.llm_context || '')
+  const [embeddingProvider, setEmbeddingProvider] = useState<EmbeddingProvider>(
+    settings?.embedding_provider || 'sentence-transformers'
+  )
+  const [embeddingModel, setEmbeddingModel] = useState(settings?.embedding_model || 'all-MiniLM-L6-v2')
 
   // Update form state when settings load
   useEffect(() => {
@@ -23,6 +27,8 @@ export default function Settings() {
       setBotName(settings.bot_name || '')
       setClassificationMethod(settings.classification_method)
       setLlmContext(settings.llm_context || '')
+      setEmbeddingProvider(settings.embedding_provider)
+      setEmbeddingModel(settings.embedding_model)
     }
   }, [settings])
 
@@ -34,6 +40,8 @@ export default function Settings() {
       bot_name: botName.trim() || null,
       classification_method: classificationMethod,
       llm_context: llmContext.trim() || null,
+      embedding_provider: embeddingProvider,
+      embedding_model: embeddingModel,
     })
 
     if (result.success) {
@@ -47,7 +55,9 @@ export default function Settings() {
   const hasChanges =
     (settings?.bot_name || '') !== (botName.trim() || '') ||
     settings?.classification_method !== classificationMethod ||
-    (settings?.llm_context || '') !== (llmContext.trim() || '')
+    (settings?.llm_context || '') !== (llmContext.trim() || '') ||
+    settings?.embedding_provider !== embeddingProvider ||
+    settings?.embedding_model !== embeddingModel
 
   if (loading) {
     return (
@@ -194,26 +204,70 @@ export default function Settings() {
         <CardHeader>
           <CardTitle>Semantic Grouping</CardTitle>
           <CardDescription>
-            How messages are matched to existing tickets
+            How messages are matched to existing concerns using embeddings
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center justify-between p-4 bg-muted rounded-md">
-            <div>
-              <div className="font-medium">sentence-transformers</div>
-              <div className="text-sm text-muted-foreground">Model: all-MiniLM-L6-v2</div>
-            </div>
-            <div className="text-sm text-muted-foreground">
-              (read-only)
-            </div>
+          <div className="space-y-3">
+            <label className="text-sm font-medium">Embedding Provider</label>
+
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="radio"
+                name="embeddingProvider"
+                value="sentence-transformers"
+                checked={embeddingProvider === 'sentence-transformers'}
+                onChange={(e) => setEmbeddingProvider(e.target.value as EmbeddingProvider)}
+                className="mt-1"
+              />
+              <div>
+                <div className="font-medium">sentence-transformers (Local)</div>
+                <div className="text-sm text-muted-foreground">
+                  Runs locally, free, fast (~20-50ms). Default model: all-MiniLM-L6-v2 (384 dimensions)
+                </div>
+              </div>
+            </label>
+
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="radio"
+                name="embeddingProvider"
+                value="openai"
+                checked={embeddingProvider === 'openai'}
+                onChange={(e) => setEmbeddingProvider(e.target.value as EmbeddingProvider)}
+                className="mt-1"
+              />
+              <div>
+                <div className="font-medium">OpenAI API</div>
+                <div className="text-sm text-muted-foreground">
+                  API-based, paid (~$0.02/1M tokens), higher quality embeddings.
+                  Model: text-embedding-3-small (1536 dimensions)
+                </div>
+              </div>
+            </label>
           </div>
+
+          {/* Warning about provider switching */}
+          {embeddingProvider !== settings?.embedding_provider && (
+            <div className="flex items-start gap-2 p-3 bg-yellow-50 dark:bg-yellow-950 rounded-md border border-yellow-200 dark:border-yellow-800">
+              <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400 mt-0.5 flex-shrink-0" />
+              <div className="text-sm text-yellow-800 dark:text-yellow-200">
+                <p className="font-medium mb-1">⚠️ Warning: Changing embedding provider</p>
+                <p>
+                  Switching embedding providers will cause new messages to create separate concerns
+                  instead of matching existing ones. Embeddings from different providers are incompatible.
+                  Only change this setting when you have no open concerns, or when you want a fresh start.
+                </p>
+              </div>
+            </div>
+          )}
 
           <div className="flex items-start gap-2 p-3 bg-muted rounded-md">
             <Info className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
             <p className="text-sm text-muted-foreground">
-              This embedding model is used for semantic similarity matching to group messages
-              with related tickets. Unlike classification, grouping uses cosine similarity
-              with temporal decay to find the best matching ticket.
+              Semantic grouping uses embedding vectors and cosine similarity to match messages
+              with related concerns. Messages in the same thread are always grouped together regardless
+              of similarity score.
             </p>
           </div>
         </CardContent>

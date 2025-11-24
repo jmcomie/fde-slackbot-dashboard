@@ -42,12 +42,33 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize classifier and grouper (reuse instances for performance)
-# Note: Classifier selection is done per-request based on settings
-embedding_classifier = MessageClassifier(confidence_threshold=0.5)
+# Initialize classifier and grouper
+# Note: We'll create these lazily based on settings to pick up provider changes
+embedding_classifier = None
+grouper = None
 
-# Create grouper with embedding classifier (for backward compatibility)
-grouper = ConcernGrouper(classifier=embedding_classifier)
+
+def get_embedding_classifier():
+    """
+    Get the embedding classifier based on current settings.
+
+    Creates a fresh classifier to pick up embedding provider/model changes.
+    """
+    settings = get_settings(use_cache=False)
+
+    return MessageClassifier(
+        confidence_threshold=0.5,
+        embedding_provider=settings.embedding_provider,
+        embedding_model=settings.embedding_model
+    )
+
+
+def get_grouper():
+    """
+    Get the concern grouper with the current embedding classifier.
+    """
+    classifier = get_embedding_classifier()
+    return ConcernGrouper(classifier=classifier)
 
 logger.info("FDE Slackbot API initialized")
 
@@ -229,6 +250,7 @@ async def process_message(request: ProcessMessageRequest):
             )
 
         # Step 5: Group the message into a concern
+        grouper = get_grouper()
         result = grouper.process_message(
             message_id=request.message_id,
             message_text=message_text,
@@ -324,6 +346,7 @@ async def process_bug(request: ProcessBugRequest):
 
         # Step 2: Process the bug (no classification - always bug_report)
         # Only use title for semantic grouping
+        grouper = get_grouper()
         result = grouper.process_bug_event(
             bug_id=request.bug_id,
             bug_title=bug_title
