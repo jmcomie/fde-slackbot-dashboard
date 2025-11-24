@@ -11,6 +11,8 @@ interface SlackEvent {
   api_app_id: string | null
   channel_id: string | null
   user_id: string | null
+  user_name: string | null
+  channel_name: string | null
   message_text: string | null
   message_ts: string | null
   thread_ts: string | null
@@ -42,10 +44,10 @@ function mapSlackEventToMessage(
   return {
     id: event.id,
     user_id: event.user_id || 'unknown',
-    user_name: event.user_id || 'Unknown User',
+    user_name: event.user_name || undefined,
     content: event.message_text || '',
     channel: event.channel_id || 'unknown',
-    channel_name: undefined,
+    channel_name: event.channel_name || undefined,
     thread_ts: event.thread_ts || undefined,
     message_ts: event.message_ts || '',
     message_type: undefined,

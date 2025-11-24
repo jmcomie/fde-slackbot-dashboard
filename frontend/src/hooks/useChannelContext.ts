@@ -8,6 +8,8 @@ interface SlackEvent {
   event_type: string
   channel_id: string
   user_id: string
+  user_name: string | null
+  channel_name: string | null
   message_text: string
   message_ts: string
   thread_ts: string | null
@@ -46,9 +48,10 @@ export function useChannelContext(
     return {
       id: event.id,
       user_id: event.user_id,
-      user_name: event.user_id, // Will be enhanced later with actual user names
+      user_name: event.user_name || undefined,
       content: event.message_text,
       channel: event.channel_id,
+      channel_name: event.channel_name || undefined,
       thread_ts: event.thread_ts || undefined,
       message_ts: event.message_ts,
       created_at: event.created_at,
