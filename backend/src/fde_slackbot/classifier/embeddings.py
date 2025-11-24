@@ -15,6 +15,7 @@ from openai import OpenAI
 from fde_slackbot.classifier.config import (
     EMBEDDING_MODEL_NAME,
     EMBEDDING_SIMILARITY_THRESHOLD,
+    OPENAI_EMBEDDING_SIMILARITY_THRESHOLD,
     get_all_category_examples,
 )
 from fde_slackbot.classifier.models import MessageCategory
@@ -80,7 +81,7 @@ class EmbeddingClassifier:
         self,
         provider: str = "sentence-transformers",
         model_name: str = EMBEDDING_MODEL_NAME,
-        similarity_threshold: float = EMBEDDING_SIMILARITY_THRESHOLD,
+        similarity_threshold: Optional[float] = None,
         category_examples: Optional[Dict[str, list[str]]] = None,
     ):
         """
@@ -91,12 +92,21 @@ class EmbeddingClassifier:
             model_name: Name of the model to use (provider-specific):
                        - sentence-transformers: "all-MiniLM-L6-v2" (384d), "all-mpnet-base-v2" (768d)
                        - openai: "text-embedding-3-small" (1536d), "text-embedding-3-large" (3072d)
-            similarity_threshold: Minimum cosine similarity to assign category (default: 0.7)
+            similarity_threshold: Minimum cosine similarity to assign category
+                                (default: 0.7 for sentence-transformers, 0.5 for openai)
             category_examples: Optional custom category examples
         """
         self.provider = provider
         self.model_name = model_name
-        self.similarity_threshold = similarity_threshold
+
+        # Set provider-specific threshold if not provided
+        if similarity_threshold is None:
+            if provider == "openai":
+                self.similarity_threshold = OPENAI_EMBEDDING_SIMILARITY_THRESHOLD
+            else:
+                self.similarity_threshold = EMBEDDING_SIMILARITY_THRESHOLD
+        else:
+            self.similarity_threshold = similarity_threshold
 
         # Load the appropriate model based on provider
         if provider == "sentence-transformers":

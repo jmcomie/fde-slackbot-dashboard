@@ -94,7 +94,10 @@ EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
 """Lightweight sentence transformer model for fast classification"""
 
 EMBEDDING_SIMILARITY_THRESHOLD = 0.7
-"""Minimum cosine similarity to assign a category with confidence"""
+"""Minimum cosine similarity to assign a category with confidence (sentence-transformers)"""
+
+OPENAI_EMBEDDING_SIMILARITY_THRESHOLD = 0.5
+"""Minimum cosine similarity to assign a category with confidence (OpenAI embeddings)"""
 
 
 def get_all_category_examples() -> Dict[str, List[str]]:

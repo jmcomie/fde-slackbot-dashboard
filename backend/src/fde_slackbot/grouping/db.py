@@ -335,3 +335,68 @@ def get_bug_event_by_id(event_id: str) -> Optional[dict]:
         return None
 
     return response.data[0]
+
+
+def reassign_all_messages_to_concern(
+    from_concern_id: UUID,
+    to_concern_id: UUID
+) -> Tuple[int, int]:
+    """
+    Reassign all messages and bugs from one concern to another.
+
+    This function:
+    1. Moves all concern_group records to point to the new concern
+    2. Updates message_count and bug_count for target concern
+    3. Deletes the source concern (since it will be empty)
+    4. Returns counts of messages and bugs moved
+
+    Args:
+        from_concern_id: Source concern UUID
+        to_concern_id: Target concern UUID
+
+    Returns:
+        Tuple of (messages_moved_count, bugs_moved_count)
+
+    Raises:
+        Exception: If database operation fails
+    """
+    # Use service role to bypass RLS for UPDATE/DELETE operations
+    supabase = get_supabase_client(use_secret_key=True)
+
+    # Step 1: Get all concern_group records for the source concern
+    cg_response = (
+        supabase.table('concern_group')
+        .select('*')
+        .eq('concern_id', str(from_concern_id))
+        .execute()
+    )
+
+    if not cg_response.data:
+        return (0, 0)
+
+    # Count messages vs bugs
+    messages_count = sum(1 for cg in cg_response.data if cg['foreign_table'] == 'slack_event')
+    bugs_count = sum(1 for cg in cg_response.data if cg['foreign_table'] == 'bug_event')
+
+    # Step 2: Update all concern_group records to point to new concern
+    supabase.table('concern_group').update({
+        'concern_id': str(to_concern_id),
+        'grouped_at': datetime.now(timezone.utc).isoformat()
+    }).eq('concern_id', str(from_concern_id)).execute()
+
+    # Step 3: Update message_count and bug_count for target concern (add)
+    target_concern = get_concern_by_id(to_concern_id)
+    if target_concern:
+        new_message_count = target_concern.message_count + messages_count
+        new_bug_count = target_concern.bug_count + bugs_count
+        supabase.table('concern').update({
+            'message_count': new_message_count,
+            'bug_count': new_bug_count,
+            'last_updated': datetime.now(timezone.utc).isoformat()
+        }).eq('id', str(to_concern_id)).execute()
+
+    # Step 4: Delete the source concern (it's now empty and would violate the constraint)
+    # Note: concern_group records have already been moved, so this is safe
+    supabase.table('concern').delete().eq('id', str(from_concern_id)).execute()
+
+    return (messages_count, bugs_count)

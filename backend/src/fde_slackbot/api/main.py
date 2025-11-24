@@ -16,7 +16,12 @@ from pydantic import BaseModel, Field
 from fde_slackbot.classifier import MessageClassifier
 from fde_slackbot.classifier.llm_classifier import LLMClassifier
 from fde_slackbot.grouping import ConcernGrouper
-from fde_slackbot.grouping.db import get_slack_event_by_id, get_bug_event_by_id
+from fde_slackbot.grouping.db import (
+    get_slack_event_by_id,
+    get_bug_event_by_id,
+    reassign_all_messages_to_concern,
+    get_concern_by_id
+)
 from fde_slackbot.settings import get_settings
 
 # Configure logging
@@ -150,6 +155,22 @@ class ProcessBugResponse(BaseModel):
     grouping_method: str
     similarity_score: Optional[float] = None
     is_new_concern: bool
+    error: Optional[str] = None
+
+
+class ReassignMessagesRequest(BaseModel):
+    """Request to reassign messages from one concern to another."""
+    from_concern_id: str = Field(..., description="Source concern UUID")
+    to_concern_id: str = Field(..., description="Target concern UUID")
+
+
+class ReassignMessagesResponse(BaseModel):
+    """Response from reassigning messages."""
+    success: bool
+    from_concern_id: str
+    to_concern_id: str
+    messages_moved_count: int
+    bugs_moved_count: int
     error: Optional[str] = None
 
 
@@ -378,6 +399,85 @@ async def process_bug(request: ProcessBugRequest):
         raise HTTPException(
             status_code=500,
             detail=f"Internal error processing bug: {str(e)}"
+        )
+
+
+@app.post("/reassign-messages", response_model=ReassignMessagesResponse)
+async def reassign_messages(request: ReassignMessagesRequest):
+    """
+    Reassign all messages and bugs from one concern to another.
+
+    This endpoint:
+    1. Validates that both concerns exist
+    2. Moves all concern_group records to the target concern
+    3. Updates message_count and bug_count for both concerns
+    4. Returns counts of items moved
+
+    Args:
+        request: ReassignMessagesRequest with from_concern_id and to_concern_id
+
+    Returns:
+        ReassignMessagesResponse with counts of messages and bugs moved
+
+    Raises:
+        HTTPException: If concerns not found or reassignment fails
+    """
+    try:
+        logger.info(
+            f"Reassigning messages from concern {request.from_concern_id} "
+            f"to concern {request.to_concern_id}"
+        )
+
+        # Step 1: Validate both concerns exist
+        from_concern = get_concern_by_id(UUID(request.from_concern_id))
+        if not from_concern:
+            logger.warning(f"Source concern not found: {request.from_concern_id}")
+            raise HTTPException(
+                status_code=404,
+                detail=f"Source concern {request.from_concern_id} not found"
+            )
+
+        to_concern = get_concern_by_id(UUID(request.to_concern_id))
+        if not to_concern:
+            logger.warning(f"Target concern not found: {request.to_concern_id}")
+            raise HTTPException(
+                status_code=404,
+                detail=f"Target concern {request.to_concern_id} not found"
+            )
+
+        # Step 2: Reassign all messages and bugs
+        messages_moved, bugs_moved = reassign_all_messages_to_concern(
+            from_concern_id=UUID(request.from_concern_id),
+            to_concern_id=UUID(request.to_concern_id)
+        )
+
+        logger.info(
+            f"Successfully reassigned {messages_moved} message(s) and "
+            f"{bugs_moved} bug(s) from concern {request.from_concern_id} "
+            f"to concern {request.to_concern_id}"
+        )
+
+        # Step 3: Return success response
+        return ReassignMessagesResponse(
+            success=True,
+            from_concern_id=request.from_concern_id,
+            to_concern_id=request.to_concern_id,
+            messages_moved_count=messages_moved,
+            bugs_moved_count=bugs_moved
+        )
+
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
+    except Exception as e:
+        logger.error(
+            f"Error reassigning messages from {request.from_concern_id} "
+            f"to {request.to_concern_id}: {e}",
+            exc_info=True
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal error reassigning messages: {str(e)}"
         )
 
 
