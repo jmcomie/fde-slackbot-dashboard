@@ -169,7 +169,7 @@ export default function Settings() {
         <CardHeader>
           <CardTitle>Semantic Grouping</CardTitle>
           <CardDescription>
-            How messages are matched to existing concerns
+            How messages are matched to existing tickets
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -187,8 +187,8 @@ export default function Settings() {
             <Info className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
             <p className="text-sm text-muted-foreground">
               This embedding model is used for semantic similarity matching to group messages
-              with related concerns. Unlike classification, grouping uses cosine similarity
-              with temporal decay to find the best matching concern.
+              with related tickets. Unlike classification, grouping uses cosine similarity
+              with temporal decay to find the best matching ticket.
             </p>
           </div>
         </CardContent>

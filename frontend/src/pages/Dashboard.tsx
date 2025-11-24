@@ -37,17 +37,17 @@ export default function Dashboard() {
       <div>
         <h1 className="text-3xl font-bold">Dashboard</h1>
         <p className="text-muted-foreground">
-          Overview of customer concerns and messages
+          Overview of customer tickets and messages
         </p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatsWidget
-          label="Total Concerns"
+          label="Total Tickets"
           value={concernsLoading ? '...' : concerns.length.toString()}
         />
         <StatsWidget
-          label="Open Concerns"
+          label="Open Tickets"
           value={concernsLoading ? '...' : openConcerns.toString()}
           variant="warning"
         />
@@ -73,7 +73,7 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               {concernsLoading ? (
-                <p className="text-muted-foreground">Loading concerns...</p>
+                <p className="text-muted-foreground">Loading tickets...</p>
               ) : categoryConcerns.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   No {categoryLabels[category as keyof typeof categoryLabels].toLowerCase()} yet
@@ -113,10 +113,10 @@ export default function Dashboard() {
         </CardHeader>
         <CardContent>
           {concernsLoading ? (
-            <p className="text-muted-foreground">Loading concerns...</p>
+            <p className="text-muted-foreground">Loading tickets...</p>
           ) : concerns.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-muted-foreground mb-2">No concerns yet</p>
+              <p className="text-muted-foreground mb-2">No tickets yet</p>
               <p className="text-sm text-muted-foreground">
                 Add test messages in the Messages tab to see semantic grouping in action
               </p>

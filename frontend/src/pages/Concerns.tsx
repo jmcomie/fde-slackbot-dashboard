@@ -59,7 +59,7 @@ export default function Concerns() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Concerns</h1>
+        <h1 className="text-3xl font-bold">Tickets</h1>
         <p className="text-muted-foreground">
           Semantically grouped customer issues across all channels
         </p>
@@ -69,7 +69,7 @@ export default function Concerns() {
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Concerns</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Tickets</CardTitle>
             <MessageSquare className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -118,7 +118,7 @@ export default function Concerns() {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>Open Concerns ({filteredConcerns.length})</CardTitle>
+            <CardTitle>Open Tickets ({filteredConcerns.length})</CardTitle>
           </div>
         </CardHeader>
         <CardContent>
@@ -144,7 +144,7 @@ export default function Concerns() {
           </Tabs>
 
           {loading ? (
-            <p className="text-muted-foreground">Loading concerns...</p>
+            <p className="text-muted-foreground">Loading tickets...</p>
           ) : error ? (
             <p className="text-destructive">Error: {error}</p>
           ) : filteredConcerns.length === 0 ? (
@@ -153,7 +153,7 @@ export default function Concerns() {
                 No {selectedCategory === 'all' ? 'open' : categoryLabels[selectedCategory].toLowerCase()}
               </p>
               <p className="text-muted-foreground text-sm mt-2">
-                Concerns will appear here when similar messages are grouped together
+                Tickets will appear here when similar messages are grouped together
               </p>
             </div>
           ) : (

@@ -136,7 +136,7 @@ export default function Bugs() {
                   required
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  Only the title is used for semantic grouping with concerns
+                  Only the title is used for semantic grouping with tickets
                 </p>
               </div>
 
