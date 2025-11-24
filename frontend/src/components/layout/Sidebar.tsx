@@ -1,10 +1,11 @@
 import { Link, useLocation } from 'react-router-dom'
 import { cn } from '@/lib/utils'
-import { Home, MessageSquare, Bug, Layers, Settings } from 'lucide-react'
+import { Home, MessageSquare, LayoutDashboard, Bug, Layers, Settings } from 'lucide-react'
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: Home },
   { name: 'Messages', href: '/messages', icon: MessageSquare },
+  { name: 'Message Dashboard', href: '/message-dashboard', icon: LayoutDashboard },
   { name: 'Bugs', href: '/bugs', icon: Bug },
   { name: 'Tickets', href: '/concerns', icon: Layers },
   { name: 'Settings', href: '/settings', icon: Settings },

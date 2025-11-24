@@ -3,6 +3,7 @@ import { SupabaseProvider } from './context/SupabaseContext'
 import MainLayout from './components/layout/MainLayout'
 import Dashboard from './pages/Dashboard'
 import Messages from './pages/Messages'
+import MessageDashboard from './pages/MessageDashboard'
 import Bugs from './pages/Bugs'
 import Concerns from './pages/Concerns'
 import Settings from './pages/Settings'
@@ -21,6 +22,10 @@ const router = createHashRouter([
       {
         path: 'messages',
         element: <Messages />,
+      },
+      {
+        path: 'message-dashboard',
+        element: <MessageDashboard />,
       },
       {
         path: 'bugs',
