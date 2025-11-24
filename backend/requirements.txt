@@ -1,0 +1,12 @@
+# Supabase client for Python
+supabase>=2.0.0
+
+# For loading environment variables
+python-dotenv>=1.0.0
+
+# HTTP client (used by supabase-py)
+httpx>=0.24.0
+
+# Optional: for async support
+# asyncio
+# aiohttp

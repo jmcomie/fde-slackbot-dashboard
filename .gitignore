@@ -1,0 +1,22 @@
+# Private directory (contains take-home assignment materials)
+private/
+
+# Editor directories and files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Environment files (if any sensitive configs at root level)
+.env.local
+.env.*.local
