@@ -5,12 +5,15 @@ Uses structured outputs to classify messages into predefined categories
 with high accuracy and semantic understanding.
 """
 
+import logging
 import os
 from typing import Optional
 from openai import OpenAI
 from pydantic import BaseModel, Field
 
 from fde_slackbot.classifier.models import MessageCategory, ClassificationResult
+
+logger = logging.getLogger(__name__)
 
 
 class LLMClassificationResponse(BaseModel):
@@ -59,7 +62,9 @@ Your job is to categorize messages into one of the following types:
 **irrelevant**: Casual conversation, greetings, thanks, acknowledgments, off-topic
 - Examples: "Thanks!", "Good morning!", "lol", "ok", "👍", "Anyone up for lunch?"
 
-Classify the message accurately and provide a confidence score."""
+IMPORTANT: You MUST return exactly one of these five category values: "bug_report", "feature_request", "support_question", "general_question", or "irrelevant".
+
+Your response will be structured JSON with three fields: category (one of the five exact strings above), confidence (float between 0.0 and 1.0), and reasoning (brief explanation of your classification)."""
 
     def __init__(
         self,
@@ -124,12 +129,18 @@ Classify the message accurately and provide a confidence score."""
             # Build system prompt with optional custom context
             system_prompt = self._build_system_prompt()
 
+            # Log the prompt being sent to ChatGPT
+            user_message = f"Classify this message:\n\n{message_text}"
+            logger.info(f"Sending prompt to ChatGPT (model={self.model}):")
+            logger.info(f"  System: {system_prompt[:200]}..." if len(system_prompt) > 200 else f"  System: {system_prompt}")
+            logger.info(f"  User: {user_message[:200]}..." if len(user_message) > 200 else f"  User: {user_message}")
+
             # Call OpenAI with structured output
             completion = self.client.beta.chat.completions.parse(
                 model=self.model,
                 messages=[
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": f"Classify this message:\n\n{message_text}"}
+                    {"role": "user", "content": user_message}
                 ],
                 response_format=LLMClassificationResponse,
                 temperature=0.0,  # Deterministic for consistent classification
