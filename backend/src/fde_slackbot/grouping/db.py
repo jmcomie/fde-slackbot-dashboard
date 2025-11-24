@@ -118,24 +118,31 @@ def get_active_concerns_by_category(
 def update_concern_centroid_and_count(
     concern_id: UUID,
     new_centroid: List[float],
-    new_count: int
+    new_count: int,
+    new_bug_count: Optional[int] = None
 ) -> None:
     """
-    Update a concern's centroid embedding and message count.
+    Update a concern's centroid embedding and message/bug counts.
 
     Args:
         concern_id: UUID of the concern
         new_centroid: Updated centroid embedding
         new_count: Updated message count
+        new_bug_count: Updated bug count (optional, only updated if provided)
     """
     # Use service role to bypass RLS for UPDATE operations
     supabase = get_supabase_client(use_secret_key=True)
 
-    supabase.table('concern').update({
+    update_data = {
         'centroid_embedding': json.dumps(new_centroid),
         'message_count': new_count,
         'last_updated': datetime.now(timezone.utc).isoformat()
-    }).eq('id', str(concern_id)).execute()
+    }
+
+    if new_bug_count is not None:
+        update_data['bug_count'] = new_bug_count
+
+    supabase.table('concern').update(update_data).eq('id', str(concern_id)).execute()
 
 
 def find_concern_by_thread(thread_ts: str, channel_id: str) -> Optional[Concern]:
@@ -303,6 +310,26 @@ def get_slack_event_by_id(event_id: str) -> Optional[dict]:
     supabase = get_supabase_client()
 
     response = supabase.table('slack_events').select('*').eq('id', event_id).execute()
+
+    if not response.data:
+        return None
+
+    return response.data[0]
+
+
+def get_bug_event_by_id(event_id: str) -> Optional[dict]:
+    """
+    Fetch a bug_event by its ID.
+
+    Args:
+        event_id: UUID string of the bug_event
+
+    Returns:
+        Bug event dictionary if found, None otherwise
+    """
+    supabase = get_supabase_client()
+
+    response = supabase.table('bug_events').select('*').eq('id', event_id).execute()
 
     if not response.data:
         return None

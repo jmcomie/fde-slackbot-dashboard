@@ -35,7 +35,8 @@ class Concern(BaseModel):
     centroid_embedding: List[float] = Field(description="384-dimensional embedding vector")
     title: str = Field(max_length=200)
     summary: Optional[str] = None
-    message_count: int = Field(ge=1, default=1)
+    message_count: int = Field(ge=0, default=0)
+    bug_count: int = Field(ge=0, default=0)
     status: ConcernStatus = "open"
     priority: Optional[ConcernPriority] = None
     first_seen: datetime
@@ -53,7 +54,8 @@ class ConcernCreate(BaseModel):
     centroid_embedding: List[float]
     title: str
     summary: Optional[str] = None
-    message_count: int = 1
+    message_count: int = 0
+    bug_count: int = 0
     status: ConcernStatus = "open"
     priority: Optional[ConcernPriority] = None
     grouping_method: GroupingMethod

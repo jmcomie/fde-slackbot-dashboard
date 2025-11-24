@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useConcerns } from '@/hooks/useConcerns'
-import { MessageSquare, Clock, TrendingUp } from 'lucide-react'
+import { MessageSquare, Clock, TrendingUp, Bug } from 'lucide-react'
 import type { ConcernCategory } from '@/types'
 
 function formatRelativeTime(timestamp: string): string {
@@ -179,6 +179,10 @@ export default function Concerns() {
                     <div className="flex items-center gap-1">
                       <MessageSquare className="h-3 w-3" />
                       <span>{concern.message_count} message{concern.message_count === 1 ? '' : 's'}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Bug className="h-3 w-3 text-destructive" />
+                      <span>{concern.bug_count} bug{concern.bug_count === 1 ? '' : 's'}</span>
                     </div>
                     <div className="flex items-center gap-1">
                       <Clock className="h-3 w-3" />

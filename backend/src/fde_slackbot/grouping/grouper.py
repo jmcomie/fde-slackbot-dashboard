@@ -118,13 +118,14 @@ class ConcernGrouper:
 
         # Step 3: Find or create concern
         concern_id, grouping_method, similarity_score = self._find_or_create_concern(
-            message_id=message_id,
-            message_text=message_text,
-            message_embedding=message_embedding,
+            event_id=message_id,
+            event_text=message_text,
+            event_embedding=message_embedding,
             category=classification.category,
             thread_ts=thread_ts,
             channel_id=channel_id,
-            timestamp=timestamp
+            timestamp=timestamp,
+            is_bug_event=False
         )
 
         # Step 4: Create concern_group mapping
@@ -148,15 +149,79 @@ class ConcernGrouper:
             is_new_concern=is_new
         )
 
+    def process_bug_event(
+        self,
+        bug_id: str,
+        bug_title: str,
+        timestamp: Optional[datetime] = None
+    ) -> GroupingResult:
+        """
+        Process a manually-entered bug and assign it to a concern.
+
+        Bugs are ALWAYS relevant and ALWAYS in the bug_report category.
+        Only the title is used for semantic grouping.
+
+        Args:
+            bug_id: ID of the bug (from bug_events.id)
+            bug_title: The bug title (used for semantic grouping)
+            timestamp: Bug timestamp (default: now)
+
+        Returns:
+            GroupingResult (always succeeds, bugs are always relevant)
+        """
+        # Set default timestamp
+        if timestamp is None:
+            timestamp = datetime.now(timezone.utc)
+
+        # Bugs are ALWAYS bug_report category - no classification needed
+        category = "bug_report"
+
+        # Generate embedding from title only
+        bug_embedding = self.classifier.get_embedding(bug_title)
+
+        # Find or create concern (bugs never have thread_ts or channel_id)
+        concern_id, grouping_method, similarity_score = self._find_or_create_concern(
+            event_id=bug_id,
+            event_text=bug_title,
+            event_embedding=bug_embedding,
+            category=category,
+            thread_ts=None,  # Bugs don't have threads
+            channel_id=None,  # Bugs don't have channels
+            timestamp=timestamp,
+            is_bug_event=True
+        )
+
+        # Create concern_group mapping
+        confidence = GROUPING_METHODS.get(grouping_method, "medium")
+        create_concern_group(ConcernGroupCreate(
+            concern_id=concern_id,
+            foreign_table="bug_event",
+            foreign_identifier=bug_id,
+            similarity_score=similarity_score,
+            grouping_method=grouping_method,
+            confidence=confidence
+        ))
+
+        # Return result (bugs always succeed)
+        is_new = grouping_method in ["new_concern", "low_similarity"]
+        return GroupingResult(
+            concern_id=concern_id,
+            grouping_method=grouping_method,
+            similarity_score=similarity_score,
+            confidence=confidence,
+            is_new_concern=is_new
+        )
+
     def _find_or_create_concern(
         self,
-        message_id: str,
-        message_text: str,
-        message_embedding: np.ndarray,
+        event_id: str,
+        event_text: str,
+        event_embedding: np.ndarray,
         category: str,
         thread_ts: Optional[str],
         channel_id: Optional[str],
-        timestamp: datetime
+        timestamp: datetime,
+        is_bug_event: bool = False
     ) -> Tuple[UUID, str, Optional[float]]:
         """
         5-Level Hierarchical Grouping Decision Logic.
@@ -170,14 +235,23 @@ class ConcernGrouper:
                 # Update centroid with new message
                 new_centroid = update_centroid(
                     existing_concern.centroid_embedding,
-                    message_embedding,
-                    existing_concern.message_count
+                    event_embedding,
+                    existing_concern.message_count + existing_concern.bug_count
                 )
-                update_concern_centroid_and_count(
-                    existing_concern.id,
-                    new_centroid,
-                    existing_concern.message_count + 1
-                )
+                # Update appropriate count based on event type
+                if is_bug_event:
+                    update_concern_centroid_and_count(
+                        existing_concern.id,
+                        new_centroid,
+                        existing_concern.message_count,
+                        existing_concern.bug_count + 1
+                    )
+                else:
+                    update_concern_centroid_and_count(
+                        existing_concern.id,
+                        new_centroid,
+                        existing_concern.message_count + 1
+                    )
                 return (existing_concern.id, "thread_match", None)
 
         # ===== LEVEL 2: Exact Duplicate Detection =====
@@ -194,9 +268,10 @@ class ConcernGrouper:
             # No existing concerns, create new one
             new_concern_id = self._create_new_concern(
                 category=category,
-                centroid_embedding=message_embedding,
-                title=generate_title(message_text),
-                grouping_method="new_concern"
+                centroid_embedding=event_embedding,
+                title=generate_title(event_text),
+                grouping_method="new_concern",
+                is_bug_event=is_bug_event
             )
             return (new_concern_id, "new_concern", None)
 
@@ -208,7 +283,7 @@ class ConcernGrouper:
 
             # Calculate raw similarity
             similarity = calculate_cosine_similarity(
-                message_embedding,
+                event_embedding,
                 concern_centroid
             )
 
@@ -236,17 +311,28 @@ class ConcernGrouper:
             concern_id = best_match['concern_id']
             concern = get_concern_by_id(concern_id)
 
-            # Update centroid
+            # Update centroid with total event count for weighting
+            total_count = concern.message_count + concern.bug_count
             new_centroid = update_centroid(
                 concern.centroid_embedding,
-                message_embedding,
-                concern.message_count
+                event_embedding,
+                total_count
             )
-            update_concern_centroid_and_count(
-                concern_id,
-                new_centroid,
-                concern.message_count + 1
-            )
+
+            # Update appropriate count based on event type
+            if is_bug_event:
+                update_concern_centroid_and_count(
+                    concern_id,
+                    new_centroid,
+                    concern.message_count,
+                    concern.bug_count + 1
+                )
+            else:
+                update_concern_centroid_and_count(
+                    concern_id,
+                    new_centroid,
+                    concern.message_count + 1
+                )
 
             return (concern_id, "cosine_high_conf", best_match['raw_similarity'])
 
@@ -255,17 +341,28 @@ class ConcernGrouper:
             concern_id = best_match['concern_id']
             concern = get_concern_by_id(concern_id)
 
-            # Update centroid
+            # Update centroid with total event count for weighting
+            total_count = concern.message_count + concern.bug_count
             new_centroid = update_centroid(
                 concern.centroid_embedding,
-                message_embedding,
-                concern.message_count
+                event_embedding,
+                total_count
             )
-            update_concern_centroid_and_count(
-                concern_id,
-                new_centroid,
-                concern.message_count + 1
-            )
+
+            # Update appropriate count based on event type
+            if is_bug_event:
+                update_concern_centroid_and_count(
+                    concern_id,
+                    new_centroid,
+                    concern.message_count,
+                    concern.bug_count + 1
+                )
+            else:
+                update_concern_centroid_and_count(
+                    concern_id,
+                    new_centroid,
+                    concern.message_count + 1
+                )
 
             return (concern_id, "cosine_medium_conf", best_match['raw_similarity'])
 
@@ -273,9 +370,10 @@ class ConcernGrouper:
             # Low similarity - create new concern
             new_concern_id = self._create_new_concern(
                 category=category,
-                centroid_embedding=message_embedding,
-                title=generate_title(message_text),
-                grouping_method="low_similarity"
+                centroid_embedding=event_embedding,
+                title=generate_title(event_text),
+                grouping_method="low_similarity",
+                is_bug_event=is_bug_event
             )
             return (new_concern_id, "low_similarity", best_match['raw_similarity'])
 
@@ -334,16 +432,18 @@ class ConcernGrouper:
         category: str,
         centroid_embedding: np.ndarray,
         title: str,
-        grouping_method: str
+        grouping_method: str,
+        is_bug_event: bool = False
     ) -> UUID:
         """
         Create a new concern.
 
         Args:
             category: Concern category
-            centroid_embedding: Initial centroid (first message embedding)
+            centroid_embedding: Initial centroid (first event embedding)
             title: Concern title
             grouping_method: How this concern was created
+            is_bug_event: Whether this is for a bug event
 
         Returns:
             UUID of the created concern
@@ -352,7 +452,9 @@ class ConcernGrouper:
             category=category,
             centroid_embedding=centroid_embedding.tolist(),
             title=title,
-            grouping_method=grouping_method
+            grouping_method=grouping_method,
+            message_count=0 if is_bug_event else 1,
+            bug_count=1 if is_bug_event else 0
         )
 
         return create_concern(concern_data)

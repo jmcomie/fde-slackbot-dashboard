@@ -27,6 +27,14 @@ export interface Message {
   updated_at: string
 }
 
+export interface BugEvent {
+  id: string
+  title: string
+  description: string
+  created_at: string
+  updated_at: string
+}
+
 export interface Ticket {
   id: string
   title: string
@@ -87,7 +95,7 @@ export type GroupingMethod =
   | 'initial'
 export type Confidence = 'high' | 'medium' | 'low'
 
-// Represents a conceptual issue grouping related messages
+// Represents a conceptual issue grouping related messages and bugs
 export interface Concern {
   id: string
   category: ConcernCategory
@@ -95,6 +103,7 @@ export interface Concern {
   title: string
   summary?: string
   message_count: number
+  bug_count: number
   status: ConcernStatus
   priority?: ConcernPriority
   first_seen: string

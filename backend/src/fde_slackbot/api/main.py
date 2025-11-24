@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 
 from fde_slackbot.classifier import MessageClassifier
 from fde_slackbot.grouping import ConcernGrouper
-from fde_slackbot.grouping.db import get_slack_event_by_id
+from fde_slackbot.grouping.db import get_slack_event_by_id, get_bug_event_by_id
 
 # Configure logging
 logging.basicConfig(
@@ -64,6 +64,23 @@ class ProcessMessageResponse(BaseModel):
     grouping_method: Optional[str] = None
     similarity_score: Optional[float] = None
     is_new_concern: Optional[bool] = None
+    error: Optional[str] = None
+
+
+class ProcessBugRequest(BaseModel):
+    """Request to process a manually-entered bug."""
+    bug_id: str = Field(..., description="UUID of the bug in bug_events table")
+
+
+class ProcessBugResponse(BaseModel):
+    """Response from processing a bug."""
+    success: bool
+    bug_id: str
+    category: str  # Always "bug_report"
+    concern_id: str
+    grouping_method: str
+    similarity_score: Optional[float] = None
+    is_new_concern: bool
     error: Optional[str] = None
 
 
@@ -196,6 +213,85 @@ async def process_message(request: ProcessMessageRequest):
         raise HTTPException(
             status_code=500,
             detail=f"Internal error processing message: {str(e)}"
+        )
+
+
+@app.post("/process-bug", response_model=ProcessBugResponse)
+async def process_bug(request: ProcessBugRequest):
+    """
+    Process a manually-entered bug through the semantic grouping pipeline.
+
+    Bugs are ALWAYS relevant and ALWAYS categorized as "bug_report".
+    Only the title is used for semantic grouping.
+
+    This endpoint:
+    1. Fetches the bug from bug_events table
+    2. Groups it using ConcernGrouper (no classification needed)
+    3. Returns the processing result
+
+    Args:
+        request: ProcessBugRequest with bug_id
+
+    Returns:
+        ProcessBugResponse with grouping results
+
+    Raises:
+        HTTPException: If bug not found or processing fails
+    """
+    try:
+        logger.info(f"Processing bug: {request.bug_id}")
+
+        # Step 1: Fetch the bug_event from database
+        bug_event = get_bug_event_by_id(request.bug_id)
+
+        if not bug_event:
+            logger.warning(f"Bug not found: {request.bug_id}")
+            raise HTTPException(
+                status_code=404,
+                detail=f"Bug {request.bug_id} not found in bug_events table"
+            )
+
+        bug_title = bug_event.get('title', '')
+        if not bug_title:
+            logger.warning(f"Bug has no title: {request.bug_id}")
+            raise HTTPException(
+                status_code=400,
+                detail="Bug has no title"
+            )
+
+        # Step 2: Process the bug (no classification - always bug_report)
+        # Only use title for semantic grouping
+        result = grouper.process_bug_event(
+            bug_id=request.bug_id,
+            bug_title=bug_title
+        )
+
+        logger.info(
+            f"Processed bug {request.bug_id}: "
+            f"concern_id={result.concern_id}, "
+            f"method={result.grouping_method}, "
+            f"new_concern={result.is_new_concern}"
+        )
+
+        # Step 3: Return success response
+        return ProcessBugResponse(
+            success=True,
+            bug_id=request.bug_id,
+            category="bug_report",  # Always bug_report
+            concern_id=str(result.concern_id),
+            grouping_method=result.grouping_method,
+            similarity_score=result.similarity_score,
+            is_new_concern=result.is_new_concern
+        )
+
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
+    except Exception as e:
+        logger.error(f"Error processing bug {request.bug_id}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal error processing bug: {str(e)}"
         )
 
 
